@@ -1,0 +1,141 @@
+<!DOCTYPE html>
+<html lang="ur" dir="rtl">
+<head>
+  <meta charset="UTF-8">
+  <title>الرحمن آٹا چکی (آف لائن)</title>
+  <link rel="manifest" href="manifest.json">
+  <script>
+    if ('serviceWorker' in navigator) {
+      navigator.serviceWorker.register('service-worker.js')
+      .then(function(registration) {
+        console.log('Service Worker Registered');
+      }).catch(function(error) {
+        console.log('Service Worker Registration Failed:', error);
+      });
+    }
+  </script>
+  <style>
+    body { font-family: 'Noto Nastaliq Urdu', serif; background: #f0f0f0; padding: 20px; direction: rtl; font-size: 24px; }
+    .container { max-width: 700px; margin: auto; background: white; padding: 30px; border-radius: 15px; box-shadow: 0 0 15px #ccc; }
+    label, input, button { display: block; width: 100%; margin-bottom: 15px; font-size: 22px; }
+    input { padding: 10px; border: 1px solid #ccc; border-radius: 8px; }
+    button { background: #4CAF50; color: white; border: none; padding: 12px; border-radius: 8px; cursor: pointer; font-weight: bold; }
+    button:hover { background: #45a049; }
+    .result, .history, .report { margin-top: 20px; background: #e8f5e9; padding: 20px; border-radius: 15px; white-space: pre-line; font-size: 22px; }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h2 style="text-align:center;">الرحمن آٹا چکی کیلکولیٹر (آف لائن)</h2>
+
+    <label>کسٹمر کا نام:</label>
+    <input type="text" id="customer" placeholder="مثلاً احمد خان" />
+
+    <label>کل وزن (کلوگرام):</label>
+    <input type="number" id="weight" placeholder="مثلاً 100" />
+
+    <label>آٹے کی موجودہ قیمت (فی کلوگرام):</label>
+    <input type="number" id="price" value="70" />
+
+    <label>ایڈوانس آٹا (کلوگرام):</label>
+    <input type="number" id="advance" placeholder="اگر کوئی، ورنہ خالی چھوڑ دیں" />
+
+    <label><input type="checkbox" id="noCleaning"> صفائی نہیں کروانی</label>
+    <label><input type="checkbox" id="noDeduction"> کٹوتی نہیں کروانی</label>
+    <label><input type="checkbox" id="payWithFlour"> آٹے سے بل ادا کرنا ہے</label>
+
+    <button onclick="calculate()">حساب لگائیں</button>
+    <button onclick="viewHistory()">ریکارڈ دیکھیں</button>
+    <button onclick="clearHistory()">تمام ریکارڈ حذف کریں</button>
+
+    <h3>رپورٹ نکالنے کے لئے تاریخ منتخب کریں:</h3>
+    <label>شروع تاریخ:</label>
+    <input type="date" id="startDate" />
+    <label>ختم تاریخ:</label>
+    <input type="date" id="endDate" />
+    <button onclick="generateReport()">رپورٹ نکالیں</button>
+
+    <div class="result" id="output" style="display:none;"></div>
+    <div class="history" id="history" style="display:none;"></div>
+    <div class="report" id="report" style="display:none;"></div>
+  </div>
+
+<script>
+function calculate() {
+  const customer = document.getElementById("customer").value.trim();
+  const weight = parseFloat(document.getElementById("weight").value);
+  const price = parseFloat(document.getElementById("price").value);
+  const advance = parseFloat(document.getElementById("advance").value) || 0;
+  const noCleaning = document.getElementById("noCleaning").checked;
+  const noDeduction = document.getElementById("noDeduction").checked;
+  const payWithFlour = document.getElementById("payWithFlour").checked;
+  const cleanRate = 40;
+  const grindRate = 130;
+  const date = new Date();
+  const fullDate = date.toLocaleDateString('en-CA');
+
+  let actualDeduction = weight * 0.05;
+  let deductionWeight = noDeduction ? 0 : actualDeduction;
+  let deductionCash = noDeduction && price > 0 ? (actualDeduction * price) : 0;
+  let cleanCost = noCleaning ? 0 : ((weight / 40) * cleanRate);
+  let grindCost = (weight / 40) * grindRate;
+  let totalBill = cleanCost + grindCost + deductionCash;
+  let flourToGive = payWithFlour && price > 0 ? (totalBill / price) : 0;
+  let finalFlour = weight - deductionWeight - advance;
+  if (payWithFlour) { finalFlour -= flourToGive; }
+
+  let output = تاریخ: ${fullDate}\nکسٹمر کا نام: ${customer || "نام درج نہیں"}\nکل وزن: ${weight} کلوگرام\n;
+  if (!noDeduction) { output += کٹوتی: ${actualDeduction.toFixed(2)} کلوگرام\n; }
+  else { output += کٹوتی نہیں ہوئی، کٹوتی کی رقم شامل: Rs. ${deductionCash.toFixed(0)}\n; }
+  if (advance > 0) { output += ایڈوانس آٹا: ${advance} کلوگرام\n; }
+  output += صفائی لاگت: Rs. ${cleanCost.toFixed(0)}\nپسائی لاگت: Rs. ${grindCost.toFixed(0)}\nکل بل: Rs. ${totalBill.toFixed(0)}\n;
+  if (payWithFlour && flourToGive > 0) { output += بل کی مد میں آٹا: ${flourToGive.toFixed(2)} کلوگرام\n; }
+  output += -------------------------------------\nکسٹمر کو ملنے والا آٹا: ${finalFlour.toFixed(2)} کلوگرام;
+
+  document.getElementById("output").style.display = "block";
+  document.getElementById("output").innerText = output;
+
+  let oldData = JSON.parse(localStorage.getItem("attaRecords") || "[]");
+  oldData.unshift({date: fullDate, weight: weight, deduction: actualDeduction, bill: totalBill});
+  localStorage.setItem("attaRecords", JSON.stringify(oldData));
+}
+
+function viewHistory() {
+  let allData = JSON.parse(localStorage.getItem("attaRecords") || "[]");
+  if (allData.length > 0) {
+    let output = allData.map(r => تاریخ: ${r.date}\nوزن: ${r.weight} کلوگرام\nکٹوتی: ${r.deduction.toFixed(2)} کلوگرام\nبل: Rs. ${r.bill.toFixed(0)}\n-------------------------------------).join("\\n\\n");
+    document.getElementById("history").style.display = "block";
+    document.getElementById("history").innerText = output;
+  } else { alert("کوئی ریکارڈ موجود نہیں۔"); }
+}
+
+function clearHistory() {
+  if (confirm("کیا آپ تمام ریکارڈ حذف کرنا چاہتے ہیں؟")) {
+    localStorage.removeItem("attaRecords");
+    document.getElementById("history").innerText = "";
+    document.getElementById("history").style.display = "none";
+    alert("تمام ریکارڈ حذف کر دیے گئے ہیں۔");
+  }
+}
+
+function generateReport() {
+  const start = document.getElementById("startDate").value;
+  const end = document.getElementById("endDate").value;
+  if (!start || !end) {
+    alert("براہ کرم دونوں تاریخیں منتخب کریں");
+    return;
+  }
+  let allData = JSON.parse(localStorage.getItem("attaRecords") || "[]");
+  let filtered = allData.filter(r => r.date >= start && r.date <= end);
+
+  let totalWeight = filtered.reduce((sum, r) => sum + r.weight, 0);
+  let totalDeduction = filtered.reduce((sum, r) => sum + r.deduction, 0);
+  let totalBill = filtered.reduce((sum, r) => sum + r.bill, 0);
+
+  let output = رپورٹ ${start} سے ${end} تک:\n\nکل وزن: ${totalWeight.toFixed(2)} کلوگرام\nکل کٹوتی: ${totalDeduction.toFixed(2)} کلوگرام\nکل آمدنی: Rs. ${totalBill.toFixed(0)};
+  document.getElementById("report").style.display = "block";
+  document.getElementById("report").innerText = output;
+}
+</script>
+</body>
+</html>
